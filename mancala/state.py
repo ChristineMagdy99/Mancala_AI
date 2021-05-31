@@ -51,7 +51,59 @@ class GameState:
                 if self.state[i] != 0:
                     yield i
             
+    def make_move(self, move):
+        # assumes that the move is valid
+        player0_turn = self.player_turn == 0
+
+        new_state = deepcopy(self.state)
+        hand = new_state[move]
+        new_state[move] = 0
+
+        while hand > 0:
+            move = (move + 1) % PocketName.num_pockets
+            if (player0_turn and move == PocketName.p1_mancala) or (not player0_turn and move == PocketName.p0_mancala):
+                # skip opponent's mancala
+                continue
+            hand -= 1
+            new_state[move] += 1
+
+        if self.stealing:
+            if (player0_turn and move in PocketName.p0_pockets) or (not player0_turn and move in PocketName.p1_pockets):
+                if new_state[move] == 1:
+                    # steal marbles from opposite pocket if your pocket was empty
+                    opposite_move = 12 - move
+                    hand = new_state[move] + new_state[opposite_move]
+                    new_state[move], new_state[opposite_move] = 0, 0
+
+                    if player0_turn: new_state[PocketName.p0_mancala] += hand
+                    else: new_state[PocketName.p1_mancala] += hand
+
+        if (player0_turn and move == PocketName.p0_mancala) or (not player0_turn and move == PocketName.p1_mancala):
+            # play again if last peice is put in your own mancala
+            next_player = self.player_turn
+        else:
+            next_player = 1 - self.player_turn
+
+        # check for winner
+        game_done = sum(new_state[:6]) == 0 or sum(new_state[7:13]) == 0
+        winner = None
+        if game_done:
+            if sum(new_state[:6]) == 0:
+                new_state[PocketName.p1_mancala] += sum(new_state[7:13])
+                for i in PocketName.p1_pockets:
+                    new_state[i] = 0
+            elif sum(new_state[7:13]) == 0:
+                new_state[PocketName.p0_mancala] += sum(new_state[:6])
+                for i in PocketName.p0_pockets:
+                    new_state[i] = 0
+            winner = 0 if new_state[PocketName.p0_mancala] > new_state[PocketName.p1_mancala] else 1
+
+        new_game_state = GameState(new_state, next_player, self.stealing)
+        new_game_state.winner = winner
+        return new_game_state
+
 
 if __name__ == "__main__":
     game_state = GameState()
+    print(game_state.state)
     game_state.show()
